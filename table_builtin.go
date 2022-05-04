@@ -110,6 +110,14 @@ func (t *builtinTable[K1, K2, V2]) Set(k1 K1, k2 K2, newVal V2) error {
 	return nil
 }
 
+// ToMap converts the map instance to a native map
+func (t *builtinTable[K1, K2, V]) ToMap() map[K1]map[K2]V {
+	t.RLock()
+	defer t.RUnlock()
+
+	return t.table
+}
+
 // NewTable will create a new, empty instance of Table
 func NewTable[K1 comparable, K2 comparable, V any]() Table[K1, K2, V] {
 	return &builtinTable[K1, K2, V]{
