@@ -1,12 +1,14 @@
 package structures
 
 import (
+	"errors"
 	"sync"
 )
 
 // Map is a wrapper for a 2 dimensional map that manages its contents
 type builtinMap[K comparable, V any] struct {
-	table map[K]V
+	table  map[K]V
+	shadow Map[K, V]
 	sync.RWMutex
 }
 
@@ -30,6 +32,10 @@ func (t *builtinMap[K, V]) Contains(key K) bool {
 	if _, exists := t.table[key]; exists {
 		return true
 	}
+
+	if t.shadow != nil {
+		return t.shadow.Contains(key)
+	}
 	return false
 }
 
@@ -42,6 +48,11 @@ func (t *builtinMap[K, V]) Delete(key K) error {
 		delete(t.table, key)
 		return nil
 	}
+
+	if t.shadow != nil && t.shadow.Contains(key) {
+		return errors.New("cannot delete from shadow table")
+	}
+
 	return TableKeysNotFound
 }
 
@@ -55,6 +66,11 @@ func (t *builtinMap[K, V]) Get(key K) (value V, err error) {
 		value = val
 		err = nil
 	}
+
+	if err != nil && t.shadow != nil {
+		return t.shadow.Get(key)
+	}
+
 	return
 }
 
@@ -63,11 +79,15 @@ func (t *builtinMap[K, V]) GetOrDefault(key K, def V) (value V) {
 	t.RLock()
 	defer t.RUnlock()
 
-	value = def
 	if val, exists := t.table[key]; exists {
-		value = val
+		return val
 	}
-	return
+
+	if t.shadow != nil {
+		return t.shadow.GetOrDefault(key, def)
+	}
+
+	return def
 }
 
 // GetOrSet returns the value by its keys, if the keys does not exist, the given value will be set for them
@@ -75,11 +95,16 @@ func (t *builtinMap[K, V]) GetOrSet(key K, newVal V) (value V) {
 	t.Lock()
 	defer t.Unlock()
 
-	if _, exists := t.table[key]; !exists {
+	if v, exists := t.table[key]; exists {
+		value = v
+	} else if t.shadow != nil {
+		if v, err := t.shadow.Get(key); err == nil {
+			value = v
+		}
+	} else {
 		t.table[key] = newVal
+		value = newVal
 	}
-
-	value = t.table[key]
 	return
 }
 
@@ -92,12 +117,31 @@ func (t *builtinMap[K, V]) Set(key K, newVal V) error {
 	return nil
 }
 
+// ShadowCopy returns a new map with the current map as its shadow
+func (t *builtinMap[K, V]) ShadowCopy() Map[K, V] {
+	newMap := NewMap[K, V]()
+	newMap.(*builtinMap[K, V]).shadow = t
+	return newMap
+}
+
 // ToMap converts the map instance to a native map
 func (t *builtinMap[K, V]) ToMap() map[K]V {
 	t.RLock()
 	defer t.RUnlock()
 
-	return t.table
+	if t.shadow == nil {
+		return t.table
+	}
+
+	m := make(map[K]V)
+	for k, v := range t.table {
+		m[k] = v
+	}
+
+	for k, v := range t.shadow.ToMap() {
+		m[k] = v
+	}
+	return m
 }
 
 // NewMap will create a new, empty instance of Map

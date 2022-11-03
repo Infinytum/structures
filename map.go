@@ -23,6 +23,8 @@ type Map[K comparable, V any] interface {
 	GetOrSet(key K, def V) V
 	// Set stores val as a new value by key
 	Set(key K, val V) error
+	// ShadowCopy returns a new map with the current map as its shadow
+	ShadowCopy() Map[K, V]
 	// ToMap converts the map instance to a native map
 	ToMap() map[K]V
 }
