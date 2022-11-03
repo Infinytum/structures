@@ -23,6 +23,8 @@ type Table[K1 comparable, K2 comparable, V any] interface {
 	GetOrSet(k1 K1, k2 K2, newVal V) (value V)
 	// Set stores a new value by the given keys
 	Set(k1 K1, k2 K2, newVal V) error
+	// ShadowCopy returns a new table with the current table as its shadow
+	ShadowCopy() Table[K1, K2, V]
 	// ToMap converts the table instance to a native map
 	ToMap() map[K1]map[K2]V
 }

@@ -97,9 +97,9 @@ func (t *builtinMap[K, V]) GetOrSet(key K, newVal V) (value V) {
 
 	if v, exists := t.table[key]; exists {
 		value = v
-	} else if t.shadow != nil {
+	} else if t.shadow != nil && t.shadow.Contains(key) {
 		if v, err := t.shadow.Get(key); err == nil {
-			value = v
+			return v
 		}
 	} else {
 		t.table[key] = newVal
